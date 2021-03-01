@@ -1,0 +1,390 @@
+#pv -> pv-postgresql
+apiVersion: v1
+kind: PersistentVolume  
+metadata:
+  name: pv-postgresql
+spec:
+  storageClassName: storage-postgresql
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/postgresql"
+
+#pvc -> pvc-postgresql
+apiVersion: v1
+kind: PersistentVolumeClaim  
+metadata:
+  name: pvc-postgresql
+spec:
+  storageClassName: storage-postgresql
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+#storage class -> storage-postgresql
+apiVersion: storage.k8s.io/v1
+kind: storageClassName
+metadata:
+  name: storage-postgresql
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+VolumeBindingMode: WaitForFirstConsumer
+
+#configMap -> config-postgresql
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-postgresql
+data:
+  postgres_password: "22deenero"
+  postgres_user: "mafer"
+  postgres_db: "practica3"
+
+#deploy -> deployment-postgresql
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-postgresql
+  namespace: practica3-namespace
+  labels:
+    app: postgres-server
+spec:
+  selector:
+    matchLabels:
+      app: postgres-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: postgres-server
+    spec:
+      containers:
+      - image: postgres:11  #docker pull image
+        name: postgres-db1
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+          - mountPath: /var/lib/postgresql/data
+            name: postgres-db-volume3
+        env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: config-postgresql  # El configMap de donde vendra el valor 
+                  key: postgres_password # nombre del valor.
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: config-postgresql  
+                  key: postgres_user    
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: config-postgresql  
+                  key: postgres_db     
+      volumes:
+      - name: postgres-db-volume3
+      configMap:
+        name: config-postgresql
+      persistentVolumeClaim:
+        claimName: pvc-postgresql
+
+#service -> service-postgresql
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-postgresql
+  namespace: practica3-namespace
+spec:
+  selector:
+    app: postgres-server
+  ports:
+    - port: 5300
+      targetPort: 5432
+  type: LoadBalancer
+  
+
+
+
+
+
+#REDIS
+
+#pv -> pv-redis
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-redis
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: storage-redis
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/redis" # Lugar donde guardara los datos
+
+#pvc -> pvc-redis
+apiVersion: v1
+kind: PersistentVolumeClaim  
+metadata:
+  name: pvc-redis
+spec:
+  storageClassName: storage-redis
+  volumeName: pv-redis
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+#storage class -> storage-redis
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: storage-redis
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+VolumeBindingMode: WaitForFirstConsumer
+
+#deploy -> deployment-redis
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+    name: deployment-redis
+    namespace: practica3-namespace
+    labels:
+      app: redis-server
+spec:
+  replicas: 1 
+  selector:
+    matchLabels: 
+      app: redis-server
+  template: 
+    metadata:
+      labels: 
+        app: redis-server
+    spec:
+      containers:
+        - name: redis
+          image: redis
+          ports:        
+            - containerPort: 6379
+
+#service -> service-redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-redis
+  namespace: practica3-namespace
+spec:
+  selector:
+    app: redis-server
+  ports:
+    - port: 5301
+      targetPort: 6379
+  type: LoadBalancer
+
+
+  
+
+
+
+
+
+#MONGO
+
+#pv -> pv-mongo
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-mongo
+spec: #Configuración de lo que va a contruir a nivel de disco
+  storageClassName: storage-mongo
+  capacity:
+    storage: 10Gi # Capacidad
+  accessModes:
+    - ReadWriteOnce # Lectura y escritura
+  hostPath:
+    path: "/mnt/mongo" # Lugar donde guardara los datos
+
+#pvc -> pvc-mongo
+apiVersion: v1
+kind: PersistentVolumeClaim  
+metadata:
+  name: pvc-mongo
+spec:
+  storageClassName: storage-mongo
+  volumeName: pv-mongo
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+#storage class -> storage-mongo
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: storage-mongo
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+VolumeBindingMode: WaitForFirstConsumer
+
+#deploy -> deployment-mongo
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-mongo
+  namespace: practica3-namespace
+  labels:
+    app: mongo-server
+spec:
+  selector:
+    matchLabels:
+      app: mongo-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app:  mongo-server  
+    spec:
+      containers:
+      - name: mongo
+        image: mongo:4
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - mountPath: /data/db  
+          name: pv-mongo
+      volumes:
+      - name: pv-mongo
+        persistentVolumeClaim:
+          claimName: pvc-mongo
+
+#service -> service-mongo
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-mongo
+  namespace: practica3-namespace
+spec:
+  selector:
+    app: mongo-server
+  ports:
+    - port: 5302
+      targetPort: 27017
+  type: LoadBalancer
+
+
+
+
+
+
+#MYSQL
+
+
+#pv -> pv-mysql
+apiVersion: v1
+kind: PersistentVolume  
+metadata:
+  name: pv-mysql
+spec:
+  storageClassName: storage-mysql
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mnt/mysql"
+
+#pvc -> pvc-mysql
+apiVersion: v1
+kind: PersistentVolumeClaim  
+metadata:
+  name: pvc-mysql
+spec:
+  storageClassName: storage-mysql
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+#storage class -> storage-mysql
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: storage-mysql
+provisioner: kubernetes.io/no-provisioner
+reclaimPolicy: Retain
+VolumeBindingMode: WaitForFirstConsumer
+
+#configMap -> config-mysql
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-mysql
+data:
+  mysql_password: "MFernanda22"
+
+
+#deploy -> deployment-mysql
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deployment-mysql
+  namespace: practica3-namespace
+  labels:
+    app: mysql-server
+spec:
+  selector:
+    matchLabels:
+      app: mysql-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mysql-server
+    spec:
+      containers:
+      - image: mysql:5.6
+        name: mysql
+        env:
+          # Use secret in real usage
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+              configMapKeyRef:
+                name: config-mysql
+                key: mysql_password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: pv-mysqldb-vol1
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: pv-mysqldb-vol1
+      configMap: 
+        name: config-mysql
+        persistentVolumeClaim:
+          claimName: pvc-mysql
+
+#service -> service-mysql
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-mysql
+  namespace: practica3-namespace
+spec:
+  selector:
+    app: mysql-server
+  ports:
+    - port: 5303
+      targetPort: 3306
+  type: LoadBalancer
